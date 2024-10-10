@@ -1,12 +1,71 @@
+const multer = require('multer');
 const Employee = require('../models/Employee');
+const fs = require('fs');
+const path = require('path');
+
+// Ensure uploads directory exists
+if (!fs.existsSync('uploads')) {
+    fs.mkdirSync('uploads');
+}
+
+// Configure multer for file storage
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+
+// File type validation
+const upload = multer({
+    storage,
+    fileFilter: (req, file, cb) => {
+        const filetypes = /jpeg|jpg|png|gif/;
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = filetypes.test(file.mimetype);
+
+        if (mimetype && extname) {
+            return cb(null, true);
+        }
+        cb(new Error('Error: File upload only supports the following filetypes - ' + filetypes));
+    }
+});
 
 // Create Employee
 const createEmployee = async (req, res) => {
     try {
-        const newEmployee = new Employee(req.body);
+        console.log("Request Body:", req.body); // Log the body
+        console.log("Uploaded File:", req.file); // Log the uploaded file
+        
+        const { f_Name, f_Email, f_Mobile, f_Designation, f_gender, f_Course } = req.body;
+        const f_Image = req.file ? req.file.filename : null;
+
+        if (!f_Name || !f_Email || !f_Mobile || !f_Designation || !f_gender || !f_Course) {
+            return res.status(400).json({ message: 'All fields are required' });
+        }
+
+        // Check for duplicate email
+        const existingEmployee = await Employee.findOne({ f_Email });
+        if (existingEmployee) {
+            return res.status(400).json({ message: 'Email already exists' });
+        }
+
+        const newEmployee = new Employee({
+            f_Name,
+            f_Email,
+            f_Mobile,
+            f_Designation,
+            f_gender,
+            f_Course,
+            f_Image
+        });
+
         await newEmployee.save();
         res.status(201).json(newEmployee);
     } catch (error) {
+        console.error("Error creating employee:", error); // Log the error
         res.status(500).json({ message: error.message });
     }
 };
@@ -24,7 +83,32 @@ const getEmployees = async (req, res) => {
 // Update Employee
 const updateEmployee = async (req, res) => {
     try {
-        const updatedEmployee = await Employee.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        const { f_Name, f_Email, f_Mobile, f_Designation, f_gender, f_Course } = req.body;
+        const f_Image = req.file ? req.file.filename : undefined;
+
+        const updateData = {
+            f_Name,
+            f_Email,
+            f_Mobile,
+            f_Designation,
+            f_gender,
+            f_Course
+        };
+
+        if (f_Image) {
+            updateData.f_Image = f_Image;
+        }
+
+        const updatedEmployee = await Employee.findOneAndUpdate(
+            { f_Id: req.params.id }, 
+            updateData, 
+            { new: true }
+        );
+
+        if (!updatedEmployee) {
+            return res.status(404).json({ message: 'Employee not found' });
+        }
+
         res.status(200).json(updatedEmployee);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -34,11 +118,27 @@ const updateEmployee = async (req, res) => {
 // Delete Employee
 const deleteEmployee = async (req, res) => {
     try {
-        await Employee.findByIdAndDelete(req.params.id);
+        const deletedEmployee = await Employee.findByIdAndDelete(req.params.id);
+        if (!deletedEmployee) {
+            return res.status(404).json({ message: 'Employee not found' });
+        }
         res.status(204).send();
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-module.exports = { createEmployee, getEmployees, updateEmployee, deleteEmployee };
+// Get Employee by ID
+const getEmployeeById = async (req, res) => {
+    try {
+        const employee = await Employee.findById(req.params.id);
+        if (!employee) {
+            return res.status(404).json({ message: 'Employee not found' });
+        }
+        res.status(200).json(employee);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+module.exports = { createEmployee, getEmployees, updateEmployee, deleteEmployee, getEmployeeById, upload };
