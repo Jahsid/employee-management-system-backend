@@ -3,12 +3,10 @@ const Employee = require('../models/Employee');
 const fs = require('fs');
 const path = require('path');
 
-// Ensure uploads directory exists
 if (!fs.existsSync('uploads')) {
     fs.mkdirSync('uploads');
 }
 
-// Configure multer for file storage
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, 'uploads/');
@@ -18,7 +16,6 @@ const storage = multer.diskStorage({
     }
 });
 
-// File type validation
 const upload = multer({
     storage,
     fileFilter: (req, file, cb) => {
@@ -33,11 +30,10 @@ const upload = multer({
     }
 });
 
-// Create Employee
 const createEmployee = async (req, res) => {
     try {
-        console.log("Request Body:", req.body); // Log the body
-        console.log("Uploaded File:", req.file); // Log the uploaded file
+        console.log("Request Body:", req.body);
+        console.log("Uploaded File:", req.file);
         
         const { f_Name, f_Email, f_Mobile, f_Designation, f_gender, f_Course } = req.body;
         const f_Image = req.file ? req.file.filename : null;
@@ -46,7 +42,6 @@ const createEmployee = async (req, res) => {
             return res.status(400).json({ message: 'All fields are required' });
         }
 
-        // Check for duplicate email
         const existingEmployee = await Employee.findOne({ f_Email });
         if (existingEmployee) {
             return res.status(400).json({ message: 'Email already exists' });
@@ -65,12 +60,11 @@ const createEmployee = async (req, res) => {
         await newEmployee.save();
         res.status(201).json(newEmployee);
     } catch (error) {
-        console.error("Error creating employee:", error); // Log the error
+        console.error("Error creating employee:", error);
         res.status(500).json({ message: error.message });
     }
 };
 
-// Get Employee List
 const getEmployees = async (req, res) => {
     try {
         const employees = await Employee.find();
@@ -80,7 +74,6 @@ const getEmployees = async (req, res) => {
     }
 };
 
-// Update Employee
 const updateEmployee = async (req, res) => {
     try {
         const { f_Name, f_Email, f_Mobile, f_Designation, f_gender, f_Course } = req.body;
@@ -115,10 +108,9 @@ const updateEmployee = async (req, res) => {
     }
 };
 
-// Delete Employee
 const deleteEmployee = async (req, res) => {
     try {
-        const deletedEmployee = await Employee.findByIdAndDelete(req.params.id);
+        const deletedEmployee = await Employee.findOneAndDelete({ f_Id: req.params.id});
         if (!deletedEmployee) {
             return res.status(404).json({ message: 'Employee not found' });
         }
@@ -128,10 +120,9 @@ const deleteEmployee = async (req, res) => {
     }
 };
 
-// Get Employee by ID
 const getEmployeeById = async (req, res) => {
     try {
-        const employee = await Employee.findById(req.params.id);
+        const employee = await Employee.findOne({ f_Id: req.params.id });
         if (!employee) {
             return res.status(404).json({ message: 'Employee not found' });
         }
